@@ -16,6 +16,7 @@ from .ui.screens import (
     GPAScreen, AttendanceScreen, GradeScaleScreen,
 )
 from .models import UndoAction
+from gradebook import __version__ as VERSION
 
 
 class GradebookApp:
@@ -26,7 +27,7 @@ class GradebookApp:
     the screen-routing table.  Call :meth:`run` to start.
     """
 
-    VERSION = "1.0.0"
+    VERSION = VERSION
 
     def __init__(self, db_path: Optional[str] = None):
         """Initialize the application (does not start curses yet)."""

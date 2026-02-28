@@ -149,14 +149,6 @@ class ThemeManager:
     def _apply_theme(self, theme_name: str) -> None:
         """Initialize all curses color pairs for the named theme."""
         t = THEMES.get(theme_name, THEMES["Dark"])
-        bg  = t["bg"]
-        fg  = t["fg"]
-
-        def _init(pair_id: int, fg_key: str, bg_key: str = "bg") -> None:
-            try:
-                curses.init_pair(pair_id, t.get(fg_key, fg), t.get(bg_key, bg))
-            except curses.error:
-                pass
 
         curses.init_pair(PAIR_NORMAL,      t["fg"],          t["bg"])
         curses.init_pair(PAIR_HEADER,      t["header_fg"],   t["header_bg"])
