@@ -59,7 +59,7 @@ class BaseScreen:
     def _confirm(self, title: str, message: str) -> bool:
         dlg = Dialog(self.win, self.theme, title, message, "confirm")
         result = dlg.run()
-        return bool(result)
+        return result is True
 
     def _info(self, title: str, message: str) -> None:
         dlg = Dialog(self.win, self.theme, title, message, "info")

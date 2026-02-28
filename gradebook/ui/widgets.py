@@ -43,7 +43,7 @@ def safe_addch(win: "curses.window", y: int, x: int,
     """Add a single character without raising."""
     try:
         max_y, max_x = win.getmaxyx()
-        if 0 <= y < max_y and 0 <= x < max_x - 1:
+        if 0 <= y < max_y and 0 <= x < max_x:
             win.addch(y, x, ch, attr)
     except curses.error:
         pass

@@ -7,8 +7,9 @@ from typing import Optional
 from .widgets import safe_addstr, fill_background
 from .theme import ThemeManager
 
+from gradebook import __version__ as VERSION
+
 APP_NAME = "GradeBook Pro"
-VERSION  = "v1.0.0"
 
 ASCII_LOGO = [
     r"  ____               _      ____              _      ",

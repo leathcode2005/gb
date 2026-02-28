@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """GradeBook Pro – entry point."""
 
-import curses
 from gradebook.app import GradebookApp
 
 

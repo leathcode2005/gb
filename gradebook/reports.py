@@ -128,7 +128,7 @@ class ReportGenerator:
             letter = calculate_letter_grade(pct, thresholds) if thresholds else "N/A"
             lines.append(
                 f"  {truncate_text(student.name, 25):<25}"
-                f"  {truncate_text(student.student_id, 12):<12}"
+                f"  {truncate_text(student.student_id or 'N/A', 12):<12}"
                 f"  {format_percent(pct):>8}"
                 f"  {letter:>6}"
             )
