@@ -128,43 +128,62 @@ class ThemeManager:
         """Initialize theme manager with the given theme name."""
         self.theme_name = theme_name
         self._initialized = False
+        self._has_colors = False
 
     def initialize(self) -> None:
         """Call after curses.start_color(); sets up all color pairs."""
-        curses.start_color()
+        try:
+            curses.start_color()
+        except curses.error:
+            pass
         try:
             curses.use_default_colors()
         except curses.error:
             pass
-        self._apply_theme(self.theme_name)
+        self._has_colors = curses.has_colors() and curses.COLORS >= 8
+        if self._has_colors:
+            self._apply_theme(self.theme_name)
         self._initialized = True
 
     def set_theme(self, theme_name: str) -> None:
         """Switch to a different theme and reinitialize color pairs."""
         if theme_name in THEMES:
             self.theme_name = theme_name
-            if self._initialized:
+            if self._initialized and self._has_colors:
                 self._apply_theme(theme_name)
 
     def _apply_theme(self, theme_name: str) -> None:
         """Initialize all curses color pairs for the named theme."""
         t = THEMES.get(theme_name, THEMES["Dark"])
-
-        curses.init_pair(PAIR_NORMAL,      t["fg"],          t["bg"])
-        curses.init_pair(PAIR_HEADER,      t["header_fg"],   t["header_bg"])
-        curses.init_pair(PAIR_SELECTED,    t["selected_fg"],  t["selected_bg"])
-        curses.init_pair(PAIR_BORDER,      t["border_fg"],   t["bg"])
-        curses.init_pair(PAIR_TITLE,       t["title_fg"],    t["bg"])
-        curses.init_pair(PAIR_STATUS,      t["status_fg"],   t["status_bg"])
-        curses.init_pair(PAIR_ERROR,       t["error_fg"],    t["bg"])
-        curses.init_pair(PAIR_SUCCESS,     t["success_fg"],  t["bg"])
-        curses.init_pair(PAIR_WARNING,     t["warning_fg"],  t["bg"])
-        curses.init_pair(PAIR_DIM,         t["dim_fg"],      t["bg"])
-        curses.init_pair(PAIR_INPUT,       t["input_fg"],    t["input_bg"])
-        curses.init_pair(PAIR_INPUT_LABEL, t["input_lbl_fg"], t["bg"])
-        curses.init_pair(PAIR_HIGHLIGHT,   t["highlight_fg"], t["highlight_bg"])
-        curses.init_pair(PAIR_DANGER,      t["danger_fg"],   t["bg"])
-        curses.init_pair(PAIR_SPLASH,      t["splash_fg"],   t["bg"])
+        pairs = [
+            (PAIR_NORMAL,      t["fg"],          t["bg"]),
+            (PAIR_HEADER,      t["header_fg"],   t["header_bg"]),
+            (PAIR_SELECTED,    t["selected_fg"],  t["selected_bg"]),
+            (PAIR_BORDER,      t["border_fg"],   t["bg"]),
+            (PAIR_TITLE,       t["title_fg"],    t["bg"]),
+            (PAIR_STATUS,      t["status_fg"],   t["status_bg"]),
+            (PAIR_ERROR,       t["error_fg"],    t["bg"]),
+            (PAIR_SUCCESS,     t["success_fg"],  t["bg"]),
+            (PAIR_WARNING,     t["warning_fg"],  t["bg"]),
+            (PAIR_DIM,         t["dim_fg"],      t["bg"]),
+            (PAIR_INPUT,       t["input_fg"],    t["input_bg"]),
+            (PAIR_INPUT_LABEL, t["input_lbl_fg"], t["bg"]),
+            (PAIR_HIGHLIGHT,   t["highlight_fg"], t["highlight_bg"]),
+            (PAIR_DANGER,      t["danger_fg"],   t["bg"]),
+            (PAIR_SPLASH,      t["splash_fg"],   t["bg"]),
+        ]
+        max_colors = curses.COLORS if curses.COLORS > 0 else 0
+        max_pairs  = curses.COLOR_PAIRS if curses.COLOR_PAIRS > 0 else 0
+        for pair_id, fg, bg in pairs:
+            if pair_id >= max_pairs:
+                continue
+            # Clamp color values to what the terminal supports
+            safe_fg = fg if 0 <= fg < max_colors else -1
+            safe_bg = bg if 0 <= bg < max_colors else -1
+            try:
+                curses.init_pair(pair_id, safe_fg, safe_bg)
+            except (curses.error, ValueError, OverflowError):
+                pass
 
     # ------------------------------------------------------------------ #
     #  Convenience attribute accessors                                     #

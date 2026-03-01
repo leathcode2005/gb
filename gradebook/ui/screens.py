@@ -291,8 +291,9 @@ class ClassListScreen(BaseScreen):
 
     def run(self) -> Optional[str]:
         user = self.auth.current_user
-        search = SearchBox(self.win, self.theme, y=2, x=2, w=40)
-        search.active = True
+        search = SearchBox(self.win, self.theme, y=3, x=2, w=40)
+        menu = Menu(self.win, self.theme, [], y=5, x=2,
+                    h=max(1, self.h - 8), w=self.w - 4)
 
         while True:
             classes = self.db.get_classes_for_user(user.id)
@@ -303,50 +304,64 @@ class ClassListScreen(BaseScreen):
             items = [f"{c.name}  [{c.section}]  {c.semester} {c.year}"
                      for c in filtered]
 
-            menu_h = max(1, self.h - 8)
-            menu = Menu(self.win, self.theme, items, y=4, x=2,
-                        h=menu_h, w=self.w - 4)
+            menu.h = max(1, self.h - 8)
+            menu.w = self.w - 4
+            menu.set_items(items)
 
             self.win.erase()
             fill_background(self.win, self.theme.normal())
             self._draw_nav(["GradeBook Pro", "Classes"])
 
-            safe_addstr(self.win, 1, 2,
-                        f"Classes ({len(filtered)} shown)",
+            safe_addstr(self.win, 2, 2,
+                        f"Classes ({len(filtered)})",
                         self.theme.title() | curses.A_BOLD)
             search.draw()
+            safe_addstr(self.win, 4, 2, "\u2500" * (self.w - 4), self.theme.border())
             menu.draw()
-            self._draw_status(
-                "[Enter] Open  [A] Add  [E] Edit  [D] Delete  [/] Search  [Esc/B] Back")
+            if search.active:
+                self._draw_status(
+                    "[Type] Filter  [Esc] Stop  [\u2191\u2193/Enter] Navigate")
+            else:
+                self._draw_status(
+                    "[Enter] Open  [A] Add  [E] Edit  [D] Delete  [/] Search  [Esc] Back")
             self.win.refresh()
 
             key = self.win.getch()
-            if key == 27 or key in (ord("b"), ord("B")):
+            # Escape: exit search mode first, then go back
+            if key == 27:
+                if search.active:
+                    search.active = False
+                    search.query = ""
+                else:
+                    return "dashboard"
+            elif key in (ord("b"), ord("B")) and not search.active:
                 return "dashboard"
-            elif key in (ord("/"),):
+            elif key == curses.KEY_F1 or key == ord("?"):
+                return "help"
+            # Hotkeys (disabled while typing in search)
+            elif not search.active and key == ord("/"):
                 search.active = True
-            elif key in (ord("a"), ord("A")):
+            elif not search.active and key in (ord("a"), ord("A")):
                 result = self._add_class(user.id)
                 if result:
                     self.set_status(f"Class '{result.name}' created.")
-            elif key in (ord("e"), ord("E")):
+            elif not search.active and key in (ord("e"), ord("E")):
                 if filtered:
                     cls = filtered[menu.selected]
                     self._edit_class(cls)
                     self.set_status("Class updated.")
-            elif key in (ord("d"), ord("D")):
+            elif not search.active and key in (ord("d"), ord("D")):
                 if filtered:
                     cls = filtered[menu.selected]
                     if self._confirm("Delete Class",
                                      f"Delete '{cls.name}'? This removes all data."):
                         self.db.delete_class(cls.id)
                         self.set_status(f"Class '{cls.name}' deleted.")
-            elif key == curses.KEY_F1 or key == ord("?"):
-                return "help"
-            elif search.active:
-                changed = search.handle_key(key)
-                if key == 27:
-                    search.active = False
+            # Search text input
+            elif search.active and (32 <= key < 127
+                                    or key in (curses.KEY_BACKSPACE, 127, 8)):
+                search.handle_key(key)
+            # Navigation always reaches the menu
             else:
                 idx = menu.handle_key(key)
                 if idx is not None and filtered:
@@ -432,6 +447,17 @@ class ClassDetailScreen(BaseScreen):
         if not class_id:
             return "classes"
 
+        menu_items = [
+            "Students",
+            "Assignments & Categories",
+            "Grade Entry",
+            "Attendance",
+            "Reports",
+            "Grade Scale",
+        ]
+        menu = Menu(self.win, self.theme, menu_items,
+                    y=6, x=4, h=len(menu_items), w=36)
+
         while True:
             cls = self.db.get_class(class_id)
             if not cls:
@@ -463,18 +489,6 @@ class ClassDetailScreen(BaseScreen):
                                 f"{c.name}({c.weight:.0f}%)" for c in categories
                             )[:self.w - 16],
                             self.theme.dim())
-
-            # Menu
-            menu_items = [
-                "Students",
-                "Assignments & Categories",
-                "Grade Entry",
-                "Attendance",
-                "Reports",
-                "Grade Scale",
-            ]
-            menu = Menu(self.win, self.theme, menu_items,
-                        y=6, x=4, h=len(menu_items), w=36)
 
             safe_addstr(self.win, 5, 2, "─" * (self.w - 4), self.theme.border())
             menu.draw()
@@ -520,6 +534,9 @@ class CategoryScreen(BaseScreen):
         if not class_id:
             return "classes"
 
+        menu = Menu(self.win, self.theme, [], y=5, x=2,
+                    h=max(1, self.h - 10), w=self.w - 4)
+
         while True:
             cls = self.db.get_class(class_id)
             categories = self.db.get_categories_for_class(class_id)
@@ -529,8 +546,9 @@ class CategoryScreen(BaseScreen):
                 f"{c.name:<22} {c.weight:5.1f}%  drop-lowest:{c.drop_lowest}"
                 for c in categories
             ]
-            menu = Menu(self.win, self.theme, items,
-                        y=5, x=2, h=max(1, self.h - 10), w=self.w - 4)
+            menu.h = max(1, self.h - 10)
+            menu.w = self.w - 4
+            menu.set_items(items)
 
             self.win.erase()
             fill_background(self.win, self.theme.normal())
@@ -635,6 +653,8 @@ class StudentListScreen(BaseScreen):
             return "classes"
 
         search = SearchBox(self.win, self.theme, y=3, x=2, w=40)
+        menu = Menu(self.win, self.theme, [], y=5, x=2,
+                    h=max(1, self.h - 9), w=self.w - 4)
 
         while True:
             cls = self.db.get_class(class_id)
@@ -645,8 +665,9 @@ class StudentListScreen(BaseScreen):
 
             items = [f"{s.name:<25} {s.student_id:<12} {s.email}"
                      for s in students]
-            menu = Menu(self.win, self.theme, items,
-                        y=5, x=2, h=max(1, self.h - 9), w=self.w - 4)
+            menu.h = max(1, self.h - 9)
+            menu.w = self.w - 4
+            menu.set_items(items)
 
             self.win.erase()
             fill_background(self.win, self.theme.normal())
@@ -654,36 +675,49 @@ class StudentListScreen(BaseScreen):
                             cls.name if cls else "?", "Students"])
 
             safe_addstr(self.win, 2, 2,
-                        f"Students in {cls.name if cls else '?'} ({len(students)} shown)",
+                        f"Students in {cls.name if cls else '?'} ({len(students)})",
                         self.theme.title() | curses.A_BOLD)
             search.draw()
             safe_addstr(self.win, 4, 2, "─" * (self.w - 4), self.theme.border())
             menu.draw()
-            self._draw_status(
-                "[Enter] Detail  [A] Add  [E] Edit  [D] Delete  [/] Search  [Esc] Back")
+            if search.active:
+                self._draw_status(
+                    "[Type] Filter  [Esc] Stop  [↑↓/Enter] Navigate")
+            else:
+                self._draw_status(
+                    "[Enter] Detail  [A] Add  [E] Edit  [D] Delete  [/] Search  [Esc] Back")
             self.win.refresh()
 
             key = self.win.getch()
-            if key == 27 or key in (ord("b"), ord("B")):
+            # Escape: exit search mode first, then go back
+            if key == 27:
+                if search.active:
+                    search.active = False
+                    search.query = ""
+                else:
+                    return "class_detail"
+            elif key in (ord("b"), ord("B")) and not search.active:
                 return "class_detail"
-            elif key == ord("/"):
+            # Hotkeys (disabled while typing in search)
+            elif not search.active and key == ord("/"):
                 search.active = True
-            elif key in (ord("a"), ord("A")):
+            elif not search.active and key in (ord("a"), ord("A")):
                 self._add_student(class_id)
-            elif key in (ord("e"), ord("E")):
+            elif not search.active and key in (ord("e"), ord("E")):
                 if students:
                     self._edit_student(students[menu.selected])
-            elif key in (ord("d"), ord("D")):
+            elif not search.active and key in (ord("d"), ord("D")):
                 if students:
                     s = students[menu.selected]
                     if self._confirm("Remove Student",
                                      f"Remove '{s.name}' and all their grades?"):
                         self.db.delete_student(s.id)
                         self.set_status(f"Student '{s.name}' removed.")
-            elif search.active:
+            # Search text input
+            elif search.active and (32 <= key < 127
+                                    or key in (curses.KEY_BACKSPACE, 127, 8)):
                 search.handle_key(key)
-                if key == 27:
-                    search.active = False
+            # Navigation always reaches the menu
             else:
                 idx = menu.handle_key(key)
                 if idx is not None and students:
@@ -837,6 +871,9 @@ class AssignmentScreen(BaseScreen):
         if not category_id or not class_id:
             return "categories"
 
+        menu = Menu(self.win, self.theme, [], y=5, x=2,
+                    h=max(1, self.h - 9), w=self.w - 4)
+
         while True:
             cat   = self.db.get_category(category_id)
             cls   = self.db.get_class(class_id)
@@ -846,8 +883,9 @@ class AssignmentScreen(BaseScreen):
                 f"{a.name:<28} {a.total_points:6.1f}pts  {a.due_date}"
                 for a in asgns
             ]
-            menu = Menu(self.win, self.theme, items,
-                        y=5, x=2, h=max(1, self.h - 9), w=self.w - 4)
+            menu.h = max(1, self.h - 9)
+            menu.w = self.w - 4
+            menu.set_items(items)
 
             self.win.erase()
             fill_background(self.win, self.theme.normal())

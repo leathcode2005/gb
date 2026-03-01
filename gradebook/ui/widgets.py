@@ -96,7 +96,7 @@ class NavBar:
     def draw(self) -> None:
         """Render the nav-bar on row 0."""
         _, w = self.win.getmaxyx()
-        crumb_str = " > ".join(self.breadcrumbs)
+        crumb_str = " \u203a ".join(self.breadcrumbs)
         text = f"  {crumb_str}"
         safe_addstr(self.win, 0, 0, " " * w, self.theme.header())
         safe_addstr(self.win, 0, 0, text, self.theme.header() | curses.A_BOLD)
@@ -153,10 +153,13 @@ class Menu:
     def set_items(self, items: List[str]) -> None:
         self.items = items
         self.selected = min(self.selected, max(0, len(items) - 1))
-        self.offset = 0
+        if len(items) <= self.h:
+            self.offset = 0
+        else:
+            self.offset = max(0, min(self.offset, len(items) - self.h))
 
     def draw(self) -> None:
-        """Render visible menu items."""
+        """Render visible menu items with selection indicator and scroll hints."""
         for i in range(self.h):
             idx = self.offset + i
             if idx >= len(self.items):
@@ -164,13 +167,21 @@ class Menu:
                             self.theme.normal())
                 continue
             text = self.items[idx]
-            padded = f" {text} "[:self.w].ljust(self.w)
+            marker = " \u25b8 " if idx == self.selected else "   "
+            padded = f"{marker}{text} "[:self.w].ljust(self.w)
             if idx == self.selected:
                 safe_addstr(self.win, self.y + i, self.x, padded,
                             self.theme.selected() | curses.A_BOLD)
             else:
                 safe_addstr(self.win, self.y + i, self.x, padded,
                             self.theme.normal())
+        # Scroll indicators
+        if self.offset > 0:
+            safe_addstr(self.win, self.y, self.x + self.w - 4, " \u25b2 ",
+                        self.theme.dim())
+        if self.offset + self.h < len(self.items):
+            safe_addstr(self.win, self.y + self.h - 1, self.x + self.w - 4,
+                        " \u25bc ", self.theme.dim())
 
     def handle_key(self, key: int) -> Optional[int]:
         """
@@ -225,10 +236,19 @@ class SearchBox:
         self.active = False
 
     def draw(self) -> None:
-        label = "Search: "
-        max_len = self.w - len(label)
-        text = f"{label}{self.query[-max_len:]}"
-        attr = self.theme.input_field() if self.active else self.theme.dim()
+        if self.active:
+            label = "Search: "
+            max_len = self.w - len(label) - 1
+            text = f"{label}{self.query[-max_len:]}_"
+            attr = self.theme.input_field() | curses.A_UNDERLINE
+        elif self.query:
+            label = "Filter: "
+            max_len = self.w - len(label)
+            text = f"{label}{self.query[-max_len:]}"
+            attr = self.theme.input_field()
+        else:
+            text = "[/] Search"
+            attr = self.theme.dim()
         safe_addstr(self.win, self.y, self.x, text.ljust(self.w)[:self.w], attr)
 
     def handle_key(self, key: int) -> bool:

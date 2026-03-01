@@ -1,6 +1,7 @@
 """Main application controller for GradeBook Pro."""
 
 import curses
+import os
 import sys
 from typing import Optional, Dict, Any, List
 
@@ -47,6 +48,8 @@ class GradebookApp:
 
     def run(self) -> None:
         """Start the application using curses.wrapper for clean teardown."""
+        # Ensure TERM is set so curses can find color capabilities
+        os.environ.setdefault("TERM", "xterm-256color")
         try:
             curses.wrapper(self._main)
         except KeyboardInterrupt:
