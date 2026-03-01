@@ -89,7 +89,7 @@ class LoginScreen(BaseScreen):
             FormField("password", "Password", required=True, secret=True),
         ]
         form = Form(self.win, self.theme, fields,
-                    y=self.h // 2 - 4, x=self.w // 2 - 22, w=44)
+                    y=self.h // 2 - 2, x=self.w // 2 - 20, w=40)
 
         while True:
             self.win.erase()
@@ -98,12 +98,12 @@ class LoginScreen(BaseScreen):
 
             # Title
             title = "─── Login ───"
-            safe_addstr(self.win, self.h // 2 - 6,
+            safe_addstr(self.win, self.h // 2 - 5,
                         (self.w - len(title)) // 2,
                         title, self.theme.title() | curses.A_BOLD)
 
-            draw_box(self.win, self.h // 2 - 5, self.w // 2 - 24,
-                     10, 48, attr=self.theme.border())
+            draw_box(self.win, self.h // 2 - 4, self.w // 2 - 22,
+                     8, 44, attr=self.theme.border())
             form.draw()
 
             hint = "[Tab] Next field  [Enter] Login  [R] Register  [Q] Quit"
@@ -146,7 +146,7 @@ class RegisterScreen(BaseScreen):
             FormField("confirm",  "Confirm",  required=True, secret=True),
         ]
         form = Form(self.win, self.theme, fields,
-                    y=self.h // 2 - 5, x=self.w // 2 - 22, w=44)
+                    y=self.h // 2 - 2, x=self.w // 2 - 20, w=40)
 
         while True:
             self.win.erase()
@@ -154,12 +154,12 @@ class RegisterScreen(BaseScreen):
             self._draw_nav(["GradeBook Pro", "Register"])
 
             title = "─── Create Account ───"
-            safe_addstr(self.win, self.h // 2 - 7,
+            safe_addstr(self.win, self.h // 2 - 5,
                         (self.w - len(title)) // 2,
                         title, self.theme.title() | curses.A_BOLD)
 
-            draw_box(self.win, self.h // 2 - 6, self.w // 2 - 24,
-                     12, 48, attr=self.theme.border())
+            draw_box(self.win, self.h // 2 - 4, self.w // 2 - 22,
+                     10, 44, attr=self.theme.border())
             form.draw()
 
             self._draw_status("[Tab] Next  [Enter] Register  [Esc] Back")
@@ -342,9 +342,14 @@ class ClassListScreen(BaseScreen):
             elif not search.active and key == ord("/"):
                 search.active = True
             elif not search.active and key in (ord("a"), ord("A")):
-                result = self._add_class(user.id)
-                if result:
-                    self.set_status(f"Class '{result.name}' created.")
+                while True:
+                    result = self._add_class(user.id)
+                    if result:
+                        if self._confirm("Class Created",
+                                         f"'{result.name}' created successfully. Add another?"):
+                            continue
+                        self.set_status(f"Class '{result.name}' created.")
+                    break
             elif not search.active and key in (ord("e"), ord("E")):
                 if filtered:
                     cls = filtered[menu.selected]
@@ -625,11 +630,16 @@ class CategoryScreen(BaseScreen):
                     form.submitted = False
 
     def _add_category(self, class_id: int) -> None:
-        result = self._category_form("Add Category")
-        if result:
-            name, weight, drop = result
-            self.db.create_category(class_id, name, weight, drop)
-            self.set_status(f"Category '{name}' added.")
+        while True:
+            result = self._category_form("Add Category")
+            if result:
+                name, weight, drop = result
+                self.db.create_category(class_id, name, weight, drop)
+                if self._confirm("Category Added",
+                                 f"'{name}' added successfully. Add another?"):
+                    continue
+                self.set_status(f"Category '{name}' added.")
+            break
 
     def _edit_category(self, cat) -> None:
         result = self._category_form(
@@ -749,11 +759,16 @@ class StudentListScreen(BaseScreen):
                 return form.get_values()
 
     def _add_student(self, class_id: int) -> None:
-        vals = self._student_form("Add Student")
-        if vals:
-            self.db.create_student(class_id, vals["name"],
-                                   vals["sid"], vals["email"])
-            self.set_status(f"Student '{vals['name']}' added.")
+        while True:
+            vals = self._student_form("Add Student")
+            if vals:
+                self.db.create_student(class_id, vals["name"],
+                                       vals["sid"], vals["email"])
+                if self._confirm("Student Added",
+                                 f"'{vals['name']}' added successfully. Add another?"):
+                    continue
+                self.set_status(f"Student '{vals['name']}' added.")
+            break
 
     def _edit_student(self, student) -> None:
         vals = self._student_form("Edit Student",
@@ -959,11 +974,16 @@ class AssignmentScreen(BaseScreen):
                     form.submitted = False
 
     def _add_assignment(self, cat_id: int) -> None:
-        result = self._assignment_form("Add Assignment")
-        if result:
-            name, pts, due, desc = result
-            self.db.create_assignment(cat_id, name, pts, due, desc)
-            self.set_status(f"Assignment '{name}' added.")
+        while True:
+            result = self._assignment_form("Add Assignment")
+            if result:
+                name, pts, due, desc = result
+                self.db.create_assignment(cat_id, name, pts, due, desc)
+                if self._confirm("Assignment Added",
+                                 f"'{name}' added successfully. Add another?"):
+                    continue
+                self.set_status(f"Assignment '{name}' added.")
+            break
 
     def _edit_assignment(self, asgn) -> None:
         result = self._assignment_form(
